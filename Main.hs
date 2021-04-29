@@ -85,12 +85,12 @@ jsonBool =
     jsonTrue = fmap (const $ JsonBool True) (stringP "true")
     jsonFalse = fmap (const $ JsonBool False) (stringP "false")
 
-jsonNumber :: Parser Int
+jsonNumber :: Parser JsonValue
 jsonNumber = Parser $ \input ->
   let (nums, chars) = span isDigit input
    in case nums of
         "" -> Nothing
-        _ -> Just (chars, read nums)
+        _ -> Just (chars, JsonNumber $ read nums)
 
 -- jsonNumber :: Parser Num a
 -- jsonNumber = Parser $ \input ->
