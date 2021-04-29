@@ -3,16 +3,21 @@
 module Main where
 
 import Control.Applicative
+import Data.Char
 
 newtype Parser a = Parser {runParser :: String -> Maybe (String, a)}
 
 data JsonValue
   = JsonNull
   | JsonBool Bool
+  | JsonNumber Int
+  | JsonString String
+  | JsonArray [JsonValue]
+  | JsonObject [(String, JsonValue)]
   deriving (Show, Eq)
 
 jsonValue :: Parser JsonValue
-jsonValue = jsonNull
+jsonValue = jsonNull <|> jsonBool <|> jsonNumber
 
 charP :: Char -> Parser Char
 charP x = Parser $ \case
@@ -58,6 +63,8 @@ instance Applicative Parser where
     (input2, a) <- p2 input1
     return (input2, f a)
 
+-- Before we prove Parser is an alternative, we need to prove it is an applicative.
+-- And why is that? 🤔
 instance Alternative Parser where
   empty = Parser $ const empty
   (Parser p1) <|> (Parser p2) = Parser $ \input -> p1 input <|> p2 input
@@ -66,16 +73,27 @@ jsonNull :: Parser JsonValue
 jsonNull = fmap (const JsonNull) (stringP "null")
 
 jsonBool :: Parser JsonValue
--- jsonBool = jsonTrue <|> jsonFalse
 jsonBool =
-  Parser $
-    \input ->
-      case runParser jsonTrue input of
-        Just (s, a) -> Just (s, a)
-        _ -> runParser jsonFalse input
+  jsonTrue <|> jsonFalse
   where
+    --   Parser $
+    --     \input ->
+    --       case runParser jsonTrue input of
+    --         Just (s, a) -> Just (s, a)
+    --         _ -> runParser jsonFalse input
+
     jsonTrue = fmap (const $ JsonBool True) (stringP "true")
     jsonFalse = fmap (const $ JsonBool False) (stringP "false")
+
+jsonNumber :: Parser Int
+jsonNumber = Parser $ \input ->
+  let (nums, chars) = span isDigit input
+   in case nums of
+        "" -> Nothing
+        _ -> Just (chars, read nums)
+
+-- jsonNumber :: Parser Num a
+-- jsonNumber = Parser $ \input ->
 
 main :: IO ()
 main = undefined
