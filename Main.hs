@@ -86,11 +86,19 @@ jsonBool =
     jsonFalse = fmap (const $ JsonBool False) (stringP "false")
 
 jsonNumber :: Parser JsonValue
-jsonNumber = Parser $ \input ->
-  let (nums, chars) = span isDigit input
-   in case nums of
+jsonNumber = fmap (JsonNumber . read) (spanP isDigit)
+
+spanP :: (Char -> Bool) -> Parser String
+spanP f = Parser $ \input ->
+  let (hit, remain) = span f input
+   in case hit of
         "" -> Nothing
-        _ -> Just (chars, JsonNumber $ read nums)
+        _ -> Just (remain, hit)
+
+-- jsonString :: Parser JsonValue
+-- jsonString = Parser $ \input -> do
+--     (input1, c1) <- runParser (charP '"') input
+--     (input2, c2) <- runParser (stringP '"') input1
 
 -- jsonNumber :: Parser Num a
 -- jsonNumber = Parser $ \input ->
