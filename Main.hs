@@ -10,7 +10,7 @@ data JsonValue
   deriving (Show, Eq)
 
 jsonValue :: Parser JsonValue
-jsonValue = undefined
+jsonValue = jsonNull
 
 charP :: Char -> Parser Char
 charP x = Parser $ \case
@@ -18,6 +18,7 @@ charP x = Parser $ \case
     | y == x -> Just (ys, x)
   _ -> Nothing
 
+-- How to use charP to construct stringP
 stringP :: String -> Parser String
 stringP [] = Parser $ const Nothing
 stringP (x : xs) = Parser $ \case
@@ -29,6 +30,12 @@ stringP (x : xs) = Parser $ \case
     | otherwise -> Nothing
   _ -> Nothing
 
+
+jsonNull :: Parser JsonValue
+jsonNull = Parser $ \input -> (\case
+                Just (s, a) -> Just (s, JsonNull)
+                Nothing -> Nothing 
+            ) (runParser (stringP "NULL") input)
 
 
 main :: IO ()
