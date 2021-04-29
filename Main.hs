@@ -129,8 +129,5 @@ jsonArray = Parser $ \input -> do
   (remain'', c) <- runParser (charP ']') remain'
   return (remain'', JsonArray s)
 
--- jsonNumber :: Parser Num a
--- jsonNumber = Parser $ \input ->
-
 main :: IO ()
 main = undefined
