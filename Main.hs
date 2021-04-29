@@ -17,7 +17,7 @@ data JsonValue
   deriving (Show, Eq)
 
 jsonValue :: Parser JsonValue
-jsonValue = jsonNull <|> jsonBool <|> jsonNumber
+jsonValue = jsonNull <|> jsonBool <|> jsonNumber <|> jsonString <|> jsonArray
 
 charP :: Char -> Parser Char
 charP x = Parser $ \case
@@ -95,10 +95,39 @@ spanP f = Parser $ \input ->
         "" -> Nothing
         _ -> Just (remain, hit)
 
--- jsonString :: Parser JsonValue
--- jsonString = Parser $ \input -> do
---     (input1, c1) <- runParser (charP '"') input
---     (input2, c2) <- runParser (stringP '"') input1
+isNotQuotation :: Char -> Bool
+isNotQuotation '"' = False
+isNotQuotation _ = True
+
+jsonString :: Parser JsonValue
+jsonString = Parser $ \input -> do
+  (remain, c) <- runParser (charP '"') input
+  (remain', s) <- runParser (spanP isNotQuotation) remain
+  (remain'', c) <- runParser (charP '"') remain'
+  return (remain'', JsonString s)
+
+-- runParser arraySplit :: String -> (String, [JsonValue])
+-- "[123,456,789]"
+arraySplit :: Parser [JsonValue]
+arraySplit = Parser $ \input ->
+  case runJP input of
+    Just (']' : xs, j) -> Just (']' : xs, [j])
+    Just (',' : xs, j) ->
+      case runAP xs of
+        Just (x, js) -> Just (x, j : js)
+        _ -> Nothing
+    _ -> Nothing
+  where
+    runAP = runParser arraySplit
+    runJP = runParser jsonValue
+    commmaP = charP ','
+
+jsonArray :: Parser JsonValue
+jsonArray = Parser $ \input -> do
+  (remain, c) <- runParser (charP '[') input
+  (remain', s) <- runParser arraySplit remain
+  (remain'', c) <- runParser (charP ']') remain'
+  return (remain'', JsonArray s)
 
 -- jsonNumber :: Parser Num a
 -- jsonNumber = Parser $ \input ->
