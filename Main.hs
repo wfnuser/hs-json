@@ -17,7 +17,7 @@ data JsonValue
   deriving (Show, Eq)
 
 jsonValue :: Parser JsonValue
-jsonValue = jsonNull <|> jsonBool <|> jsonNumber <|> jsonString <|> jsonArray
+jsonValue = jsonNull <|> jsonBool <|> jsonNumber <|> jsonString <|> jsonArray <|> jsonObject
 
 charP :: Char -> Parser Char
 charP x = Parser $ \case
@@ -99,6 +99,10 @@ isNotQuotation :: Char -> Bool
 isNotQuotation '"' = False
 isNotQuotation _ = True
 
+isNotColon :: Char -> Bool
+isNotColon ':' = False
+isNotColon _ = True
+
 jsonString :: Parser JsonValue
 jsonString = Parser $ \input -> do
   (remain, c) <- runParser (charP '"') input
@@ -128,6 +132,42 @@ jsonArray = Parser $ \input -> do
   (remain', s) <- runParser arraySplit remain
   (remain'', c) <- runParser (charP ']') remain'
   return (remain'', JsonArray s)
+
+
+-- runParser objectSplit :: String -> (String, [(String, JsonValue)])
+-- "{id:1,num:2}"
+objectSplit :: Parser [(String, JsonValue)]
+objectSplit = Parser $ \input ->
+  case runJP input of
+    Just ('}' : xs, j) -> Just ('}' : xs, [j])
+    Just (',' : xs, j) ->
+      case runOP xs of
+        Just (x, js) -> Just (x, j : js)
+        _ -> Nothing
+    _ -> Nothing
+  where
+    runOP = runParser objectSplit
+    runJP = runParser objectValue
+    commmaP = charP ','
+
+objectValue :: Parser (String, JsonValue)
+objectValue = Parser $ \input -> 
+    case runParser keyP input of
+        Just (x, key) -> do
+            (x', c) <- runParser (charP ':') x
+            (x'', value) <- runParser jsonValue x'
+            return (x'', (key, value))
+        _ -> Nothing
+    where
+        keyP = spanP isNotColon
+
+
+jsonObject :: Parser JsonValue
+jsonObject = Parser $ \input -> do
+  (remain, c) <- runParser (charP '{') input
+  (remain', s) <- runParser objectSplit remain
+  (remain'', c) <- runParser (charP '}') remain'
+  return (remain'', JsonObject s)
 
 main :: IO ()
 main = undefined
