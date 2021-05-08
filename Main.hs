@@ -128,18 +128,6 @@ instance Monad Parser where
 -- runParser arraySplit :: String -> (String, [JsonValue])
 -- "[123,456,789]"
 arraySplit :: Parser [JsonValue]
--- arraySplit = Parser $ \input -> runParser (go []) input
---   where
---     go acc = do
---       x <- jsonValue
---       c <- charP'
---       if c == ','
---         then go (acc ++ [x])
---         else
---           if c == ']'
---             then return (acc ++ [x])
---             else fail'
-
 arraySplit = go []
   where
     go acc = do
