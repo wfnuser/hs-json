@@ -25,6 +25,14 @@ charP x = Parser $ \case
     | y == x -> Just (ys, x)
   _ -> Nothing
 
+charP' :: Parser Char
+charP' = Parser $ \case
+  y : ys -> Just (ys, y)
+  _ -> Nothing
+
+fail' :: Parser a
+fail' = Parser $ const Nothing
+
 -- How to use charP to construct stringP
 stringP :: String -> Parser String
 stringP [] = Parser $ \input -> Just (input, "")
@@ -110,29 +118,45 @@ jsonString = Parser $ \input -> do
   (remain'', c) <- runParser (charP '"') remain'
   return (remain'', JsonString s)
 
+-- Parser a -> (a -> Parser b) -> Parser b
+-- Parser a :: String -> Maybe (String, a)
+instance Monad Parser where
+  first >>= second = Parser $ \input -> case runParser first input of
+    Just (remain, token) -> runParser (second token) remain
+    Nothing -> Nothing
+
 -- runParser arraySplit :: String -> (String, [JsonValue])
 -- "[123,456,789]"
 arraySplit :: Parser [JsonValue]
-arraySplit = Parser $ \input ->
-  case runJP input of
-    Just (']' : xs, j) -> Just (']' : xs, [j])
-    Just (',' : xs, j) ->
-      case runAP xs of
-        Just (x, js) -> Just (x, j : js)
-        _ -> Nothing
-    _ -> Nothing
+-- arraySplit = Parser $ \input -> runParser (go []) input
+--   where
+--     go acc = do
+--       x <- jsonValue
+--       c <- charP'
+--       if c == ','
+--         then go (acc ++ [x])
+--         else
+--           if c == ']'
+--             then return (acc ++ [x])
+--             else fail'
+
+arraySplit = go []
   where
-    runAP = runParser arraySplit
-    runJP = runParser jsonValue
-    commmaP = charP ','
+    go acc = do
+      x <- jsonValue
+      c <- charP'
+      if c == ','
+        then go (acc ++ [x])
+        else
+          if c == ']'
+            then return (acc ++ [x])
+            else fail'
 
 jsonArray :: Parser JsonValue
 jsonArray = Parser $ \input -> do
   (remain, c) <- runParser (charP '[') input
   (remain', s) <- runParser arraySplit remain
-  (remain'', c) <- runParser (charP ']') remain'
-  return (remain'', JsonArray s)
-
+  return (remain', JsonArray s)
 
 -- runParser objectSplit :: String -> (String, [(String, JsonValue)])
 -- "{id:1,num:2}"
@@ -151,16 +175,15 @@ objectSplit = Parser $ \input ->
     commmaP = charP ','
 
 objectValue :: Parser (String, JsonValue)
-objectValue = Parser $ \input -> 
-    case runParser keyP input of
-        Just (x, key) -> do
-            (x', c) <- runParser (charP ':') x
-            (x'', value) <- runParser jsonValue x'
-            return (x'', (key, value))
-        _ -> Nothing
-    where
-        keyP = spanP isNotColon
-
+objectValue = Parser $ \input ->
+  case runParser keyP input of
+    Just (x, key) -> do
+      (x', c) <- runParser (charP ':') x
+      (x'', value) <- runParser jsonValue x'
+      return (x'', (key, value))
+    _ -> Nothing
+  where
+    keyP = spanP isNotColon
 
 jsonObject :: Parser JsonValue
 jsonObject = Parser $ \input -> do
